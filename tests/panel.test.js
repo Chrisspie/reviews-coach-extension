@@ -269,7 +269,7 @@ describe('Panel Logic', () => {
     await panelApi.openForCard(card, null, { autoGenerate: false });
     await env.flush(2);
 
-    expect(window.document.querySelector('#rc_quota').textContent).toBe('Bez limitu.');
+    expect(window.document.querySelector('#rc_quota').textContent).toBe('Unlimited.');
     expect(window.document.querySelector('#rc_upgrade').style.display).toBe('none');
   });
 
@@ -367,6 +367,7 @@ describe('Panel Logic', () => {
         rcBusinessContext: {
           placeType: 'szklarstwo',
           placeName: 'Studio Szkla Krakow',
+          replyGuidelines: 'Nie proponuj rabatow.',
           source: 'options'
         }
       },
@@ -404,6 +405,7 @@ describe('Panel Logic', () => {
     expect(generateMessages.at(-1).payload).toMatchObject({
       placeType: 'szklarstwo',
       placeName: 'Studio Szkla Krakow',
+      replyGuidelines: 'Nie proponuj rabatow.',
       rating: '4',
       text: 'Dziekujemy'
     });
@@ -512,7 +514,7 @@ describe('Panel Logic', () => {
     const env = setupPanelEnv();
     const { panelApi, toasts } = env;
     await panelApi.openReplyPopup('missing-hash', null);
-    expect(toasts).toEqual(['Nie moge znalezc opinii. Sprobuj ponownie.']);
+    expect(toasts).toEqual(['I cannot find the review. Try again.']);
   });
 
   test('OpenReplyPopup timeout', async () => {
@@ -525,7 +527,7 @@ describe('Panel Logic', () => {
     state.currentPanel = { updatePositionTargets: ()=>{} };
 
     await panelApi.openReplyPopup('hash-timeout', null);
-    expect(toasts).toEqual(['Nie moge otworzyc pola odpowiedzi. Otworz je recznie i wklej odpowiedz.']);
+    expect(toasts).toEqual(['I cannot open the reply field. Open it manually and paste the reply.']);
   });
 
   test('FocusReplyField without input', async () => {
@@ -533,7 +535,7 @@ describe('Panel Logic', () => {
     const { window, panelApi, toasts } = env;
     const root = window.document.createElement('div');
     await panelApi.focusReplyField(root);
-    expect(toasts).toEqual(['Nie widze pola odpowiedzi w oknie.']);
+    expect(toasts).toEqual(['I cannot see the reply field in the window.']);
   });
 
   test('CopyButton no variant', async () => {
@@ -551,7 +553,7 @@ describe('Panel Logic', () => {
     expect(button).toBeTruthy();
     await button.onclick();
     const err = window.document.querySelector('#rc_err');
-    expect(err.textContent).toBe('Brak tresci do skopiowania.');
+    expect(err.textContent).toBe('There is no text to copy.');
   });
 
   test('CopyButton copy failure', async () => {
@@ -571,7 +573,7 @@ describe('Panel Logic', () => {
     const button = window.document.querySelector('#rc_copy');
     await button.onclick();
     const err = window.document.querySelector('#rc_err');
-    expect(err.textContent).toBe('Nie udalo sie skopiowac tresci.');
+    expect(err.textContent).toBe('Could not copy the text.');
   });
 
   test('CopyButton success triggers popup', async () => {
@@ -596,7 +598,7 @@ describe('Panel Logic', () => {
 
     const err = window.document.querySelector('#rc_err');
     expect(err.textContent).toBe('');
-    expect(toasts).toEqual(['Skopiowano do schowka.']);
+    expect(toasts).toEqual(['Copied to clipboard.']);
     expect(calledWith).toBeTruthy();
     expect(calledWith[0]).toBe('hash-success');
     expect(calledWith[1]).toBe(card);
@@ -647,7 +649,7 @@ describe('Panel Logic', () => {
     const note = window.document.querySelector('.rc-note');
     const preview = window.document.querySelector('#rc_preview');
     expect(err.textContent).toBe('Sesja wygasla. Zaloguj sie ponownie w rozszerzeniu.');
-    expect(preview.textContent).toBe('Zaloguj sie, aby wygenerowac odpowiedz.');
+    expect(preview.textContent).toBe('Sign in to generate a reply.');
     expect(loginBtn).toBeTruthy();
     expect(loginBtn.style.display).toBe('inline-flex');
     expect(copyBtn.style.display).toBe('none');
@@ -722,7 +724,7 @@ describe('Panel Logic', () => {
     expect(panelEl.dataset.rcAuthRequired).toBe('false');
     expect(window.document.querySelector('#rc_login').style.display).toBe('none');
     expect(window.document.querySelector('#rc_copy').style.display).toBe('inline-flex');
-    expect(window.document.querySelector('#rc_preview').textContent).toBe('Zalogowano. Kliknij Regeneruj, aby wygenerowac odpowiedz.');
+    expect(window.document.querySelector('#rc_preview').textContent).toBe('Signed in. Click Regenerate to generate a reply.');
     expect(sentMessages.filter(message => message?.type === 'GENERATE_ALL')).toHaveLength(1);
   });
 
@@ -765,7 +767,7 @@ describe('Panel Logic', () => {
     });
 
     const err = window.document.querySelector('#rc_err');
-    expect(err.textContent).toBe('Brak odpowiedzi z uslugi generowania. Sprobuj ponownie.');
+    expect(err.textContent).toBe('The generation service did not respond. Try again.');
     const preview = window.document.querySelector('#rc_preview');
     expect(preview.textContent).toBe('...');
   });

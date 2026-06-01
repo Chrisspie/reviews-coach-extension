@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Reviews Coach - Opcje</title>
+  <title>Reviews Coach - Options</title>
   <style>
     :root { color-scheme: light dark; }
     body { font-family: system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 32px 20px 48px; background: #f9fafb; color: #0f172a; }
@@ -15,8 +15,9 @@
     dt { font-weight: 600; margin-top: 12px; }
     dd { margin: 4px 0 0; word-break: break-word; }
     label { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; font-size: 13px; font-weight: 600; }
-    input[type="text"] { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font: 14px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif; color: #0f172a; background: #fff; }
-    input[type="text"]:focus { outline: 2px solid #93c5fd; outline-offset: 2px; border-color: #2563eb; }
+    input[type="text"], textarea { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font: 14px system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, "Helvetica Neue", Arial, sans-serif; color: #0f172a; background: #fff; }
+    input[type="text"]:focus, textarea:focus { outline: 2px solid #93c5fd; outline-offset: 2px; border-color: #2563eb; }
+    textarea { min-height: 104px; resize: vertical; line-height: 1.45; }
     button { border: none; border-radius: 8px; padding: 12px 20px; font-size: 15px; font-weight: 600; cursor: pointer; background: #0f172a; color: #fff; }
     button.secondary { background: #e2e8f0; color: #0f172a; }
     button.upgrade-action { display: none; background: #db2777; }
@@ -28,6 +29,10 @@
     .status-err { color: #b91c1c; }
     .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 0; }
     .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .form-row-full { grid-column: 1 / -1; }
+    .field-hint { margin: 0; color: #64748b; font-size: 12px; font-weight: 400; line-height: 1.4; }
+    .field-meta { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+    .char-count { color: #64748b; font-size: 12px; font-weight: 500; white-space: nowrap; }
     .save-status { min-height: 20px; margin: 12px 0 0; font-size: 13px; }
     .upgrade-status { min-height: 20px; margin: 10px 0 0; font-size: 13px; }
     .auth-only { display: none; }
@@ -48,76 +53,81 @@
 <body>
 <main>
   <h1 class="auth-only">Reviews Coach</h1>
-  <p class="auth-only">Zaloguj sie kontem Google, ustaw kontekst miejsca i zarzadzaj dostepem.</p>
+  <p class="auth-only" data-i18n="optionsIntro">Sign in with Google, set place context, and manage access.</p>
 
   <section class="hint guest-only" id="consent-section">
-    <h2>Autoryzacja</h2>
-    <p class="muted">
-      Reviews Coach jest niezaleznym narzedziem third-party. Loguj sie tylko wtedy, gdy dzialasz jako wlasciciel
-      profilu Google Business Profile albo masz wyrazne upowaznienie do przygotowywania odpowiedzi w imieniu firmy.
-    </p>
+    <h2 data-i18n="authorization">Authorization</h2>
+    <p class="muted" data-i18n="thirdPartyNoticeText">Reviews Coach is an independent third-party tool. Sign in only if you act as the owner of the Google Maps place or you have explicit authorization to prepare replies on behalf of the business.</p>
     <div class="consent-row">
       <input id="reply_assistant_consent" type="checkbox">
       <label for="reply_assistant_consent">
-        <span>Potwierdzam, ze dzialam jako wlasciciel profilu Google Business Profile albo mam wyrazne upowaznienie do przygotowywania odpowiedzi w imieniu firmy.</span>
-        <span class="muted">Wygenerowane odpowiedzi sa tylko robocza propozycja. Samodzielnie decyduje, co publikowac.</span>
+        <span data-i18n="authorizationConsent">I confirm that I act as the owner of the Google Maps place or have explicit authorization to prepare replies on behalf of the business.</span>
+        <span class="muted" data-i18n="draftOnlyNotice">Generated replies are draft suggestions only. I decide what to publish.</span>
       </label>
     </div>
     <div class="consent-links">
-      <a href="https://reviewscoach.com/wspolpraca-z-zewnetrznym-dostawca" target="_blank" rel="noreferrer">Notice third-party</a>
-      <a href="https://reviewscoach.com/regulamin" target="_blank" rel="noreferrer">Regulamin</a>
-      <a href="https://reviewscoach.com/polityka-prywatnosci" target="_blank" rel="noreferrer">Polityka prywatnosci</a>
+      <a href="https://reviewscoach.com/wspolpraca-z-zewnetrznym-dostawca" target="_blank" rel="noreferrer" data-i18n="noticeThirdParty">Third-party notice</a>
+      <a href="https://reviewscoach.com/regulamin" target="_blank" rel="noreferrer" data-i18n="terms">Terms</a>
+      <a href="https://reviewscoach.com/polityka-prywatnosci" target="_blank" rel="noreferrer" data-i18n="privacyPolicy">Privacy policy</a>
     </div>
   </section>
 
   <section class="hint">
-    <h2 class="auth-only">Konto</h2>
-    <p id="auth-status" class="muted">(wczytywanie...)</p>
-    <p id="logged-out-help" class="muted guest-only">Potwierdz autoryzacje i zaloguj sie kontem Google, aby skonfigurowac dzialanie rozszerzenia.</p>
-    <p class="muted">Funkcja generowania wysyla tresc opinii, ocene i kontekst miejsca do backendu Reviews Coach oraz Google Gemini wylacznie w celu przygotowania odpowiedzi.</p>
+    <h2 class="auth-only" data-i18n="account">Account</h2>
+    <p id="auth-status" class="muted" data-i18n="loading">(loading...)</p>
+    <p id="logged-out-help" class="muted guest-only" data-i18n="loggedOutHelp">Confirm authorization and sign in with Google to configure the extension.</p>
+    <p class="muted" data-i18n="generationDisclosureFull">The generation feature sends the review text, rating, and place context to the Reviews Coach backend and Google Gemini solely to prepare reply suggestions.</p>
     <dl class="auth-only">
       <dt>Email</dt>
       <dd id="account-email">-</dd>
-      <dt>Typ licencji</dt>
+      <dt data-i18n="licenseType">License type</dt>
       <dd id="license-type">-</dd>
-      <dt>Pozostaly limit</dt>
+      <dt data-i18n="remainingLimit">Remaining limit</dt>
       <dd id="quota-left">-</dd>
-      <dt>Nastepna platnosc</dt>
+      <dt data-i18n="nextPayment">Next payment</dt>
       <dd id="next-payment">-</dd>
-      <dt>Autoryzacja</dt>
+      <dt data-i18n="authorization">Authorization</dt>
       <dd id="consent-status">-</dd>
     </dl>
     <div class="actions">
-      <button id="google_login_btn">Zaloguj przez Google</button>
-      <button id="upgrade_btn" class="upgrade-action">Kup abonament</button>
-      <button id="logout_btn" class="secondary auth-only">Wyloguj</button>
+      <button id="google_login_btn" data-i18n="signInWithGoogle">Sign in with Google</button>
+      <button id="upgrade_btn" class="upgrade-action" data-i18n="buySubscription">Buy subscription</button>
+      <button id="logout_btn" class="secondary auth-only" data-i18n="logout">Sign out</button>
     </div>
     <p id="upgrade-status" class="upgrade-status muted auth-only"></p>
   </section>
 
   <section id="business-context-section" class="hint auth-only">
-    <h2>Kontekst miejsca</h2>
-    <p class="muted">Te dane beda uzywane przy generowaniu odpowiedzi.</p>
+    <h2 data-i18n="placeContext">Place context</h2>
+    <p class="muted" data-i18n="placeContextHelp">These details will be used when generating replies.</p>
     <div class="form-grid">
-      <label for="business_place_type">
-        <span>Typ dzialalnosci</span>
-        <input id="business_place_type" type="text" maxlength="80" placeholder="np. restauracja, szklarz, salon kosmetyczny" autocomplete="organization-title">
-      </label>
       <label for="business_place_name">
-        <span>Nazwa firmy</span>
-        <input id="business_place_name" type="text" maxlength="120" placeholder="np. Zielony Piec" autocomplete="organization">
+        <span data-i18n="businessName">Business name</span>
+        <input id="business_place_name" type="text" maxlength="120" placeholder="e.g. Green Oven" autocomplete="organization" data-i18n-placeholder="businessNamePlaceholder">
+      </label>
+      <label for="business_place_type">
+        <span data-i18n="businessType">Business type</span>
+        <input id="business_place_type" type="text" maxlength="80" placeholder="e.g. restaurant, glass repair, beauty salon" autocomplete="organization-title" data-i18n-placeholder="businessTypePlaceholder">
+      </label>
+      <label for="business_reply_guidelines" class="form-row-full">
+        <div class="field-meta">
+          <span data-i18n="replyGuidelines">Reply guidelines</span>
+          <span id="reply-guidelines-count" class="char-count">0/1200</span>
+        </div>
+        <textarea id="business_reply_guidelines" maxlength="1200" placeholder="e.g. Do not offer discounts. Do not apologize on behalf of the business. Always invite the customer to call us." data-i18n-placeholder="replyGuidelinesPlaceholder"></textarea>
+        <span class="field-hint" data-i18n="replyGuidelinesHelp">Example: "Do not offer discounts", "Do not apologize on behalf of the business", "Always invite the customer to call us", or "Keep replies short and direct".</span>
       </label>
     </div>
     <div class="actions">
-      <button id="save_context_btn">Zapisz kontekst</button>
+      <button id="save_context_btn" data-i18n="saveContext">Save context</button>
     </div>
     <p id="context-save-status" class="save-status muted"></p>
   </section>
 
   <div class="hint auth-only">
-    <p class="muted">Po zalogowaniu wroc do Google Maps i wygeneruj odpowiedz z panelu Reviews Coach.</p>
-    <p class="muted">Szczegoly przetwarzania danych znajdziesz w polityce prywatnosci oraz notice third-party dostepnych na stronie Reviews Coach.</p>
-    <p class="muted">Funkcja generowania wysyla tresc opinii, ocene i kontekst miejsca do backendu Reviews Coach oraz Google Gemini wylacznie w celu przygotowania odpowiedzi.</p>
+    <p class="muted" data-i18n="afterLoginHelp">After signing in, return to Google Maps and generate a reply from the Reviews Coach panel.</p>
+    <p class="muted" data-i18n="privacyDetailsHelp">Details about data processing are available in the privacy policy and third-party notice on the Reviews Coach website.</p>
+    <p class="muted" data-i18n="generationDisclosureFull">The generation feature sends the review text, rating, and place context to the Reviews Coach backend and Google Gemini solely to prepare reply suggestions.</p>
   </div>
 </main>
 <script src="options.js"></script>

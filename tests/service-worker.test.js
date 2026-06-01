@@ -32,6 +32,7 @@ function createStorageArea() {
 let onMessageHandler = null;
 let createdTabs = [];
 let sentTabMessages = [];
+let tabQueries = [];
 let openedOptionsCount = 0;
 
 // global.crypto = webcrypto;
@@ -53,7 +54,10 @@ global.chrome = {
     create: ({ url }) => {
       createdTabs.push(url);
     },
-    query: async () => [{ id: 101 }, { id: 102 }],
+    query: async (queryInfo) => {
+      tabQueries.push(queryInfo);
+      return [{ id: 101 }, { id: 102 }];
+    },
     sendMessage: async (tabId, message) => {
       sentTabMessages.push({ tabId, message });
     }
@@ -81,6 +85,7 @@ describe('Service Worker Logic', () => {
     await localArea.clear();
     createdTabs = [];
     sentTabMessages = [];
+    tabQueries = [];
     openedOptionsCount = 0;
     global.fetch = async () => { throw new Error('fetch not mocked'); };
   });
@@ -156,7 +161,7 @@ describe('Service Worker Logic', () => {
     });
     expect(listenerResult).toBe(true);
     await Promise.resolve();
-    expect(response).toEqual({ error: 'Brak danych opinii do wygenerowania.' });
+    expect(response).toEqual({ error: 'Missing review data for generation.' });
   });
 
   test('GENERATE_ALL while logged out returns auth guidance without console error', async () => {
@@ -188,7 +193,7 @@ describe('Service Worker Logic', () => {
       await new Promise(resolve => setTimeout(resolve, 0));
 
       expect(response).toEqual({
-        error: 'Sesja wygasla. Zaloguj sie ponownie w rozszerzeniu.',
+        error: 'Sign-in required. Open the extension options and sign in with Google.',
         errorCode: 'AUTH_REQUIRED'
       });
       expect(errorSpy).not.toHaveBeenCalled();
@@ -325,6 +330,9 @@ describe('Service Worker Logic', () => {
       quota: { remaining: 42 }
     });
     expect(sentTabMessages).toHaveLength(2);
+    expect(tabQueries).toContainEqual({
+      url: ['https://*.google.com/maps*', 'https://*.google.pl/maps*']
+    });
     expect(sentTabMessages.map(item => item.tabId)).toEqual([101, 102]);
     for (const item of sentTabMessages) {
       expect(item.message).toMatchObject({
@@ -382,7 +390,7 @@ describe('Service Worker Logic', () => {
       expect(result).toBe(true);
       await new Promise(resolve => setTimeout(resolve, 0));
 
-      expect(response).toEqual({ error: 'Logowanie anulowane.' });
+      expect(response).toEqual({ error: 'Sign-in cancelled.' });
       expect(errorSpy).not.toHaveBeenCalled();
     } finally {
       chrome.identity.launchWebAuthFlow = originalLaunchWebAuthFlow;
@@ -865,7 +873,8 @@ describe('Service Worker Logic', () => {
         rating: '5',
         text: 'Makaron byl swietny i obsluga bardzo mila.',
         placeType: 'restauracja wloska',
-        placeName: 'Trattoria Verde'
+        placeName: 'Trattoria Verde',
+        replyGuidelines: 'Nie proponuj rabatow.\nZawsze zapros do kontaktu telefonicznego.'
       }
     }, {}, () => {});
 
@@ -875,6 +884,13 @@ describe('Service Worker Logic', () => {
     expect(generateBody).not.toHaveProperty('model');
     expect(generateBody).not.toHaveProperty('contents');
     expect(generateBody).not.toHaveProperty('systemInstruction');
+    expect(generateBody).toMatchObject({
+      rating: '5',
+      text: 'Makaron byl swietny i obsluga bardzo mila.',
+      placeType: 'restauracja wloska',
+      placeName: 'Trattoria Verde',
+      replyGuidelines: 'Nie proponuj rabatow.\nZawsze zapros do kontaktu telefonicznego.'
+    });
   });
 
   test('OPEN_UPGRADE_PAGE opens Stripe checkout directly for logged-in users', async () => {
@@ -1015,7 +1031,7 @@ describe('Service Worker Logic', () => {
     expect(listenerResult).toBe(true);
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    expect(response).toEqual({ error: 'Sprobuj ponownie pozniej.' });
+    expect(response).toEqual({ error: 'Try again later.' });
   });
 
   test('GENERATE_ALL masks upstream high demand errors with a friendly overload message', async () => {
@@ -1076,7 +1092,7 @@ describe('Service Worker Logic', () => {
     await new Promise(resolve => setTimeout(resolve, 1300));
 
     expect(response).toEqual({
-      error: 'Serwer jest obecnie obciazony. Sprobuj ponownie za chwile.',
+      error: 'The server is currently busy. Try again in a moment.',
       errorCode: undefined,
       freeLimit: undefined,
       quota: null,

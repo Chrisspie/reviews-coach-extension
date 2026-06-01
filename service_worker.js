@@ -5,25 +5,34 @@ const GENERATE_ENDPOINT_PATH = '/gemini/generate';
 const LOG_ENDPOINT_PATH = '/api/extension/log';
 const TOKEN_EXPIRY_GUARD_MS = 10 * 1000; // keep 10s safety window
 const GENERATE_REQUEST_TIMEOUT_MS = 18 * 1000;
-const GENERATE_TIMEOUT_MESSAGE = 'Usluga generowania odpowiada zbyt wolno. Sprobuj ponownie.';
+function t(key, fallback = '', substitutions) {
+  try {
+    const message = chrome?.i18n?.getMessage?.(key, substitutions);
+    if (message) return message;
+  } catch (_) { }
+  return fallback || key;
+}
+
+const GENERATE_TIMEOUT_MESSAGE = t('generateTimeout', 'The reply generation service is taking too long. Try again.');
 const MAX_PLACE_TYPE_CHARS = 80;
 const MAX_PLACE_NAME_CHARS = 120;
+const MAX_REPLY_GUIDELINES_CHARS = 1200;
 const INSTALL_ID_KEY = 'rcInstallId';
 const DEVICE_TOKEN_KEY = 'rcDeviceToken';
 const ACCOUNT_PROFILE_KEY = 'rcAccountProfile';
 const CONFIG_FILE = 'config.json';
-const MAPS_TAB_URLS = ['https://*.google.com/maps/*', 'https://*.google.pl/maps/*'];
+const MAPS_TAB_URLS = ['https://*.google.com/maps*', 'https://*.google.pl/maps*'];
 
 const AUTH_REQUIRED_CODE = 'AUTH_REQUIRED';
-const AUTH_REQUIRED_MESSAGE = 'Wymagane logowanie. Otworz opcje rozszerzenia i zaloguj sie przez Google.';
+const AUTH_REQUIRED_MESSAGE = t('authRequired', 'Sign-in required. Open the extension options and sign in with Google.');
 const GOOGLE_LOGIN_REQUIRED_CODE = 'GOOGLE_LOGIN_REQUIRED';
 const LOGIN_CANCELLED_CODE = 'LOGIN_CANCELLED';
 const CONSENT_REQUIRED_CODE = 'CONSENT_REQUIRED';
-const CONSENT_REQUIRED_MESSAGE = 'Potwierdz w opcjach rozszerzenia, ze jestes wlascicielem profilu albo masz wyrazne upowaznienie do przygotowywania odpowiedzi.';
+const CONSENT_REQUIRED_MESSAGE = t('consentRequired', 'Confirm in the extension options that you are the owner of the place or have explicit authorization to prepare replies.');
 const AUTH_STATUS_CHANGED_MESSAGE = 'AUTH_STATUS_CHANGED';
-const FRIENDLY_RETRY_MESSAGE = 'Sprobuj ponownie pozniej.';
-const FRIENDLY_UPGRADE_MESSAGE = 'Nie udalo sie otworzyc platnosci. Sprobuj ponownie pozniej.';
-const FRIENDLY_OVERLOAD_MESSAGE = 'Serwer jest obecnie obciazony. Sprobuj ponownie za chwile.';
+const FRIENDLY_RETRY_MESSAGE = t('retryLater', 'Try again later.');
+const FRIENDLY_UPGRADE_MESSAGE = t('paymentOpenFailedRetry', 'Could not open payment. Try again later.');
+const FRIENDLY_OVERLOAD_MESSAGE = t('serverOverloaded', 'The server is currently busy. Try again in a moment.');
 const OVERLOAD_RETRY_DELAY_MS = 1200;
 const EXPECTED_USER_STATE_CODES = new Set([
   AUTH_REQUIRED_CODE,
@@ -43,6 +52,18 @@ function normalizeReviewText(value) {
 
 function truncateContextField(value, maxLen) {
   const str = (value || '').toString().replace(/\s+/g, ' ').trim();
+  if (str.length <= maxLen) return str;
+  return str.slice(0, maxLen).trimEnd();
+}
+
+function truncateGuidelinesField(value, maxLen) {
+  const str = (value || '').toString()
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map(line => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
   if (str.length <= maxLen) return str;
   return str.slice(0, maxLen).trimEnd();
 }
@@ -99,7 +120,7 @@ async function getProxySettings() {
   if (cfg && cfg.proxyBase) {
     return cfg;
   }
-  throw new Error('Brak config.json. Zbuduj rozszerzenie przed uruchomieniem.');
+  throw new Error(t('missingConfig', 'Missing config.json. Build the extension before running it.'));
 }
 
 function buildProxyUrl(base, path) {
@@ -416,7 +437,7 @@ function isInvalidDeviceTokenError(err) {
 async function requestGoogleIdToken(proxySettings) {
   const clientId = (proxySettings?.googleClientId || '').toString().trim();
   if (!clientId) {
-    throw new Error('Brak Google Client ID w konfiguracji.');
+    throw new Error(t('missingGoogleClientId', 'Missing Google Client ID in configuration.'));
   }
   const redirectUri = chrome.identity.getRedirectURL('provider_cb');
   console.log('[RC] OAuth Redirect URI (add this to Google Cloud Console):', redirectUri);
@@ -430,7 +451,7 @@ async function requestGoogleIdToken(proxySettings) {
 
   const responseUrl = await launchAuthFlow(authUrl.toString());
   if (!responseUrl) {
-    throw createErrorWithCode('Logowanie anulowane.', LOGIN_CANCELLED_CODE);
+    throw createErrorWithCode(t('loginCancelled', 'Sign-in cancelled.'), LOGIN_CANCELLED_CODE);
   }
   const urlObj = new URL(responseUrl);
   const hashParams = new URLSearchParams(urlObj.hash.substring(1));
@@ -446,7 +467,7 @@ async function requestGoogleIdToken(proxySettings) {
   if (queryToken) {
     return queryToken;
   }
-  throw new Error('Brak id_token w odpowiedzi Google.');
+  throw new Error(t('missingGoogleIdToken', 'Missing id_token in the Google response.'));
 }
 
 async function clearStoredSession() {
@@ -545,7 +566,7 @@ function sanitizeUserFacingError(message, fallback = FRIENDLY_RETRY_MESSAGE) {
 
   const normalized = text.toLowerCase();
   if (isLoginCancelledMessage(text)) {
-    return 'Logowanie anulowane.';
+    return t('loginCancelled', 'Sign-in cancelled.');
   }
   if (normalized.includes('failed to fetch') || normalized.includes('networkerror') || normalized.includes('load failed')) {
     return fallback;
@@ -554,10 +575,10 @@ function sanitizeUserFacingError(message, fallback = FRIENDLY_RETRY_MESSAGE) {
     return FRIENDLY_OVERLOAD_MESSAGE;
   }
   if (normalized.includes('auth_required') || normalized.includes('wymagane logowanie') || normalized.includes('sesja wygasla')) {
-    return 'Sesja wygasla. Zaloguj sie ponownie w rozszerzeniu.';
+    return t('sessionExpiredSignInExtension', 'Session expired. Sign in again in the extension.');
   }
   if (normalized.includes('google_login_required') || normalized.includes('zaloguj sie kontem google')) {
-    return 'Aby kupic abonament, zaloguj sie kontem Google w rozszerzeniu.';
+    return t('googleLoginRequiredForSubscription', 'To buy a subscription, sign in with Google in the extension.');
   }
   if (normalized.includes('consent_required') || normalized.includes('potwierdz w opcjach rozszerzenia')) {
     return CONSENT_REQUIRED_MESSAGE;
@@ -581,7 +602,7 @@ async function waitMs(ms) {
 
 async function fetchSessionToken(settings, options = {}) {
   const proxyBase = settings?.proxyBase;
-  if (!proxyBase) { throw new Error('Brak Proxy URL w konfiguracji.'); }
+  if (!proxyBase) { throw new Error(t('missingProxyUrl', 'Missing Proxy URL in configuration.')); }
   const licenseKey = (settings?.licenseKey || '').toString().trim();
   const deviceToken = licenseKey ? '' : (await getStoredDeviceToken());
   const installId = await ensureInstallId();
@@ -624,18 +645,18 @@ async function fetchSessionToken(settings, options = {}) {
   try {
     parsed = raw ? JSON.parse(raw) : {};
   } catch (err) {
-    throw new Error(resp.ok ? 'Proxy zwrocilo niepoprawny JSON podczas autoryzacji.' : `Proxy auth HTTP ${resp.status}`);
+    throw new Error(resp.ok ? t('proxyInvalidAuthJson', 'The proxy returned invalid JSON during authorization.') : `Proxy auth HTTP ${resp.status}`);
   }
   if (!resp.ok) {
     const errorText = parsed && (parsed.error || parsed.message) ? (parsed.error || parsed.message) : resp.statusText;
-    const err = new Error(errorText || 'Nie udalo sie pobrac sesji z proxy.');
+    const err = new Error(errorText || t('proxySessionFailed', 'Could not get a proxy session.'));
     if (parsed && parsed.code) {
       err.code = parsed.code;
     }
     throw err;
   }
   const token = (parsed.token || parsed.jwt || '').trim();
-  if (!token) throw new Error('Proxy nie zwrocilo tokenu JWT.');
+  if (!token) throw new Error(t('proxyMissingJwt', 'The proxy did not return a JWT token.'));
   const expiresAt = resolveSessionExpiry(parsed);
   const normalizedQuota = normalizeQuota(parsed.quota, settings?.upgradeUrl);
   if (normalizedQuota) updateQuotaState(normalizedQuota);
@@ -673,7 +694,7 @@ async function ensureSessionToken(settings, options = {}) {
       && !(settings?.licenseKey || '').toString().trim();
 
     if (!canRetryWithGoogle) {
-      throw createAuthRequiredError('Sesja wygasla. Zaloguj sie ponownie.');
+      throw createAuthRequiredError(t('sessionExpiredSignInAgain', 'Session expired. Sign in again.'));
     }
 
     const idToken = await requestGoogleIdToken(settings);
@@ -731,7 +752,7 @@ async function openUpgradeCheckout(proxySettings) {
     return checkoutUrl;
   }
 
-  throw createErrorWithCode('Sesja wygasla. Zaloguj sie ponownie w rozszerzeniu.', AUTH_REQUIRED_CODE);
+  throw createErrorWithCode(t('sessionExpiredSignInExtension', 'Session expired. Sign in again in the extension.'), AUTH_REQUIRED_CODE);
 }
 
 function sendLogEvent(proxySettings, token, level, message, context) {
@@ -783,7 +804,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true });
       } catch (err) {
         console.error('[RC] Open options page error:', err);
-        sendResponse({ error: 'Nie udalo sie otworzyc opcji. Otworz opcje rozszerzenia recznie.' });
+        sendResponse({ error: t('optionsOpenManual', 'Could not open options. Open the extension options manually.') });
       }
       return;
     }
@@ -802,7 +823,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true, profile, quota: session.quota || getQuotaState() });
       } catch (err) {
         logUnexpectedError('[RC] Google login failed', err);
-        sendResponse({ error: sanitizeUserFacingError(err && err.message, 'Blad logowania Google.') });
+        sendResponse({ error: sanitizeUserFacingError(err && err.message, t('googleLoginFailed', 'Google sign-in failed.')) });
       }
       return;
     }
@@ -826,7 +847,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'START_MAGIC_LINK') {
       const email = (msg.email || '').toString().trim();
       if (!email) {
-        sendResponse({ error: 'Email is required.' });
+        sendResponse({ error: t('emailRequired', 'Email is required.') });
         return;
       }
       try {
@@ -851,7 +872,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         let parsed = {};
         try { parsed = raw ? JSON.parse(raw) : {}; } catch (_) { parsed = {}; }
         if (!resp.ok) {
-          const message = parsed.error || parsed.message || resp.statusText || 'Magic link request failed.';
+          const message = parsed.error || parsed.message || resp.statusText || t('magicLinkFailed', 'Magic link request failed.');
           sendResponse({ error: message });
           return;
         }
@@ -860,7 +881,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const urlObj = new URL(redirectUrl);
           const code = urlObj.searchParams.get('code');
           if (!code) {
-            sendResponse({ error: 'Missing auth code in redirect.' });
+            sendResponse({ error: t('missingAuthCode', 'Missing auth code in redirect.') });
             return;
           }
           await clearStoredSession();
@@ -880,7 +901,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'COMPLETE_MAGIC_LINK') {
       const code = (msg.code || '').toString().trim();
       if (!code) {
-        sendResponse({ error: 'Code is required.' });
+        sendResponse({ error: t('codeRequired', 'Code is required.') });
         return;
       }
       try {
@@ -906,11 +927,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const payload = (msg && typeof msg === 'object' && msg.payload && typeof msg.payload === 'object') ? msg.payload : null;
       if (!payload) {
         console.warn('[RC] GENERATE_ALL message missing payload.');
-        sendResponse({ error: 'Brak danych opinii do wygenerowania.' });
+        sendResponse({ error: t('missingReviewData', 'Missing review data for generation.') });
         return;
       }
       const proxySettings = await getProxySettings();
-      if (!proxySettings.proxyBase) { sendResponse({ error: 'Brak Proxy URL. Zbuduj rozszerzenie ponownie.' }); return; }
+      if (!proxySettings.proxyBase) { sendResponse({ error: t('missingProxyRebuild', 'Missing Proxy URL. Build the extension again.') }); return; }
       let sessionToken = '';
       try {
         sessionToken = await ensureSessionToken(proxySettings, { interactive: true });
@@ -925,25 +946,31 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const reviewText = normalizeReviewText(payload.text == null ? '' : String(payload.text));
       const placeType = truncateContextField(payload.placeType, MAX_PLACE_TYPE_CHARS);
       const placeName = truncateContextField(payload.placeName, MAX_PLACE_NAME_CHARS);
+      const replyGuidelines = truncateGuidelinesField(payload.replyGuidelines, MAX_REPLY_GUIDELINES_CHARS);
       console.log('[RC] Worker payload meta:', {
         rating,
         textLength: reviewText.length,
         placeType,
-        hasPlaceName: !!placeName
+        hasPlaceName: !!placeName,
+        hasReplyGuidelines: !!replyGuidelines,
+        replyGuidelinesLength: replyGuidelines.length
       });
       console.log('[RC] Proxy request meta:', {
         proxy: proxySettings.proxyBase,
         textLength: reviewText.length,
         rating,
         placeType,
-        hasPlaceName: !!placeName
+        hasPlaceName: !!placeName,
+        hasReplyGuidelines: !!replyGuidelines,
+        replyGuidelinesLength: replyGuidelines.length
       });
       const url = buildProxyUrl(proxySettings.proxyBase, GENERATE_ENDPOINT_PATH);
       const body = {
         text: reviewText,
         rating,
         placeType,
-        placeName
+        placeName,
+        replyGuidelines
       };
       const baseHeaders = {
         'Content-Type': 'application/json',
@@ -961,7 +988,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         rating,
         textLength: reviewText.length,
         placeType,
-        hasPlaceName: !!placeName
+        hasPlaceName: !!placeName,
+        hasReplyGuidelines: !!replyGuidelines,
+        replyGuidelinesLength: replyGuidelines.length
       });
       let attempt = 0;
       try {
@@ -989,11 +1018,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             j = raw ? JSON.parse(raw) : {};
           } catch (_) {
             if (!resp.ok) {
-              sendResponse({ error: `Blad proxy (${resp.status})`, quota: quotaFromResp });
+              sendResponse({ error: t('proxyErrorStatus', `Proxy error (${resp.status})`, [String(resp.status)]), quota: quotaFromResp });
               if (quotaFromResp) updateQuotaState(quotaFromResp);
               return;
             }
-            sendResponse({ error: 'Niepoprawna odpowiedz proxy.', quota: quotaFromResp });
+            sendResponse({ error: t('proxyInvalidResponse', 'Invalid proxy response.'), quota: quotaFromResp });
             if (quotaFromResp) updateQuotaState(quotaFromResp);
             return;
           }
@@ -1029,22 +1058,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             sendResponse({ error: err, quota: quotaFromResp });
             return;
           }
-          const text = (j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts)
-            ? j.candidates[0].content.parts.map(p => p.text || '').join('\n')
-            : '';
-          let soft = '', brief = '', proactive = '';
-          try {
-            const m = text.match(/\{[\s\S]*\}/);
-            const jsonText = m ? m[0] : text;
-            const obj = JSON.parse(jsonText);
-            soft = (obj.soft || '').trim();
-            brief = (obj.brief || '').trim();
-            proactive = (obj.proactive || '').trim();
-          } catch (_) {
-            const parts = text.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
-            soft = parts[0] || '';
-            brief = parts[1] || '';
-            proactive = parts[2] || '';
+          let soft = (j?.soft || '').trim();
+          let brief = (j?.brief || '').trim();
+          let proactive = (j?.proactive || '').trim();
+          if (!soft || !brief || !proactive) {
+            const text = (j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts)
+              ? j.candidates[0].content.parts.map(p => p.text || '').join('\n')
+              : '';
+            try {
+              const obj = JSON.parse(text);
+              soft = (obj.soft || '').trim();
+              brief = (obj.brief || '').trim();
+              proactive = (obj.proactive || '').trim();
+            } catch (_) {
+              soft = '';
+              brief = '';
+              proactive = '';
+            }
           }
           if (quotaFromResp) updateQuotaState(quotaFromResp);
           const logRemaining = quotaRemainingValue(quotaFromResp);

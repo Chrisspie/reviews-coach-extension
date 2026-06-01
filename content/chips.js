@@ -1,6 +1,7 @@
-(function initChips(global){
+﻿(function initChips(global){
   const RC = global.RC;
   const { state, dom, reviews } = RC;
+  const t = RC.t || ((key, fallback) => fallback || key);
   const chips = RC.chips = RC.chips || {};
   const RESTACK_HOVER_GRACE_MS = 400;
 
@@ -174,12 +175,12 @@
       ? hostCard
       : chips.findCardForHash(targetHash);
     if (!card){
-      dom.showToast('Nie moge znalezc opinii dla tej podpowiedzi.');
+      dom.showToast(t('toastReviewNotFoundForSuggestion', 'I cannot find the review for this suggestion.'));
       return;
     }
     const panel = global.RC.panel;
     if (!panel || typeof panel.openForCard !== 'function'){
-      dom.showToast('Panel jeszcze sie laduje, sprobuj ponownie.');
+      dom.showToast(t('toastPanelLoading', 'The panel is still loading. Try again.'));
       return;
     }
     if (reviews){
@@ -195,8 +196,10 @@
     const btn = document.createElement('button');
     btn.className = 'rc-chip-btn';
     btn.setAttribute('data-rc-hash', hashVal);
-    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3l1.6 3.7L17 8.2l-3.4 1.5L12 13l-1.6-3.3L7 8.2l3.4-1.5L12 3z" stroke="currentColor" stroke-width="1.6"/></svg><span>Podpowiedz odpowiedź</span>';
-    btn.setAttribute('aria-label', 'Podpowiedz odpowiedź');
+    const label = t('chipSuggestReply', 'Suggest reply');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M12 3l1.6 3.7L17 8.2l-3.4 1.5L12 13l-1.6-3.3L7 8.2l3.4-1.5L12 3z" stroke="currentColor" stroke-width="1.6"/></svg><span></span>';
+    btn.querySelector('span').textContent = label;
+    btn.setAttribute('aria-label', label);
     btn.addEventListener('click', onChipClick);
     return btn;
   };
@@ -401,6 +404,7 @@
     });
   };
 })(window);
+
 
 
 

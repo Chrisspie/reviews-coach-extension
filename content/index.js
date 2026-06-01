@@ -4,10 +4,33 @@
 
   function ensureRouteWatcher(){
     if (state.handlers.routeChange) return;
-    const handler = ()=> setTimeout(()=> bootstrap(global), 80);
+    let routeTimerId = 0;
+    state.lastRouteHref = String(global.location?.href || '');
+
+    const scheduleBootstrap = () => {
+      if (routeTimerId) clearTimeout(routeTimerId);
+      routeTimerId = setTimeout(()=>{
+        routeTimerId = 0;
+        bootstrap(global);
+      }, 80);
+    };
+
+    const handler = () => {
+      state.lastRouteHref = String(global.location?.href || '');
+      scheduleBootstrap();
+    };
+
+    const checkHref = () => {
+      const href = String(global.location?.href || '');
+      if (href === state.lastRouteHref) return;
+      state.lastRouteHref = href;
+      scheduleBootstrap();
+    };
+
     window.addEventListener('hashchange', handler);
     window.addEventListener('popstate', handler);
-    state.handlers.routeChange = handler;
+    const intervalId = setInterval(checkHref, 1000);
+    state.handlers.routeChange = { handler, intervalId };
   }
 
   function teardown(){

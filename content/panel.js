@@ -1,6 +1,7 @@
 ﻿(function initPanel(global) {
   const RC = global.RC;
   const { state, dom, reviews, chips, placeContext: placeContextApi = {} } = RC;
+  const t = RC.t || ((key, fallback, substitutions) => fallback || key);
   const panelApi = RC.panel = RC.panel || {};
 
   panelApi.openForCard = async function openForCard(card, anchor) {
@@ -153,6 +154,7 @@
         placeKey: '',
         placeName: '',
         placeType: '',
+        replyGuidelines: '',
         detectedPlaceName: '',
         detectedPlaceType: '',
         source: 'none'
@@ -176,7 +178,7 @@
     } catch (err) {
       console.error('[RC] Nie udalo sie otworzyc panelu', err);
       if (wrap.isConnected) {
-        panelEl.innerHTML = '<div class="rc-error">Nie udalo sie otworzyc panelu.</div>';
+        panelEl.innerHTML = `<div class="rc-error">${dom.escapeHtml(t('panelOpenError', 'Could not open the panel.'))}</div>`;
       }
     }
   };
@@ -189,15 +191,15 @@
     const minutes = Math.floor((total % 3600) / 60);
     const parts = [];
     if (days > 0) {
-      parts.push(`${days} ${days === 1 ? 'dzieĹ„' : 'dni'}`);
+      parts.push(`${days} ${days === 1 ? t('durationDay', 'day') : t('durationDays', 'days')}`);
     }
     if (hours > 0 && parts.length < 2) {
-      parts.push(`${hours} godz.`);
+      parts.push(`${hours} ${t('durationHourShort', 'h')}`);
     }
     if (days === 0 && minutes > 0 && parts.length < 2) {
-      parts.push(`${minutes} min`);
+      parts.push(`${minutes} ${t('durationMinuteShort', 'min')}`);
     }
-    if (!parts.length) return 'mniej niĹĽ minutÄ™';
+    if (!parts.length) return t('durationLessThanMinute', 'less than a minute');
     return parts.join(' ');
   }
 
@@ -232,7 +234,7 @@
 
     if (type === 'unlimited' || (Number.isFinite(rawLimit) && rawLimit < 0)) {
       box.style.display = 'block';
-      box.textContent = 'Bez limitu.';
+      box.textContent = t('unlimited', 'Unlimited.');
       return;
     }
 
@@ -259,17 +261,17 @@
         const expiresLabel = expiresAt && !Number.isNaN(expiresAt.getTime())
           ? expiresAt.toLocaleString(navigator.language || 'pl-PL', { dateStyle: 'short', timeStyle: 'short' })
           : null;
-        box.textContent = human ? `Darmowy okres probny konczy sie za ${human}.` : 'Darmowy okres probny nadal trwa.';
+        box.textContent = human ? t('trialEndsIn', `The free trial ends in ${human}.`, [human]) : t('trialStillActive', 'The free trial is still active.');
         if (expiresLabel) {
           const extra = document.createElement('span');
-          extra.textContent = ` (do ${expiresLabel})`;
+          extra.textContent = t('untilDate', ` (until ${expiresLabel})`, [expiresLabel]);
           box.appendChild(extra);
         }
         return;
       }
       box.classList.add('rc-quota-warning');
       const textEl = document.createElement('span');
-      textEl.textContent = 'Darmowy okres probny wygasl.';
+      textEl.textContent = t('trialExpired', 'The free trial has expired.');
       box.appendChild(textEl);
       showUpgradeCta();
       return;
@@ -281,12 +283,13 @@
     const remaining = Number.isFinite(remainingRaw) ? Math.max(0, Math.floor(remainingRaw)) : 0;
     box.style.display = 'block';
     if (remaining > 0) {
-      const formatted = `${formatNumber(remaining)} z ${formatNumber(limit)} darmowych odpowiedzi.`;
-      box.textContent = `Pozostalo ${formatted}`;
+      const remainingLabel = formatNumber(remaining);
+      const limitLabel = formatNumber(limit);
+      box.textContent = t('remainingFreeRepliesOfLimit', `${remainingLabel} of ${limitLabel} free replies remaining.`, [remainingLabel, limitLabel]);
       return;
     }
     box.classList.add('rc-quota-warning');
-    box.textContent = 'Limit darmowych odpowiedzi zostal wykorzystany.';
+    box.textContent = t('freeLimitReached', 'The free reply limit has been used.');
     showUpgradeCta();
   }
 
@@ -309,7 +312,7 @@
     const sendMessage = chrome?.runtime?.sendMessage;
     if (typeof sendMessage !== 'function') {
       const err = panelEl?.querySelector?.('#rc_err');
-      if (err) err.textContent = 'Nie moge otworzyc logowania z tej strony. Otworz opcje rozszerzenia.';
+      if (err) err.textContent = t('openLoginUnavailable', 'I cannot open sign-in from this page. Open the extension options.');
       return;
     }
     sendMessage({ type: 'OPEN_LOGIN_PAGE' }, (resp) => {
@@ -317,7 +320,7 @@
       if (!panelEl?.isConnected || (!runtimeError && !(resp && resp.error))) return;
       const err = panelEl.querySelector('#rc_err');
       if (err) {
-        err.textContent = runtimeError?.message || resp?.error || 'Nie udalo sie otworzyc logowania.';
+        err.textContent = runtimeError?.message || resp?.error || t('openLoginFailed', 'Could not open sign-in.');
       }
     });
   }
@@ -326,7 +329,7 @@
     const sendMessage = chrome?.runtime?.sendMessage;
     if (typeof sendMessage !== 'function') {
       const err = panelEl?.querySelector?.('#rc_err');
-      if (err) err.textContent = 'Nie moge otworzyc opcji z tej strony. Otworz opcje rozszerzenia recznie.';
+      if (err) err.textContent = t('openOptionsUnavailable', 'I cannot open options from this page. Open the extension options manually.');
       return;
     }
     sendMessage({ type: 'OPEN_OPTIONS_PAGE' }, (resp) => {
@@ -334,7 +337,7 @@
       if (!panelEl?.isConnected || (!runtimeError && !(resp && resp.error))) return;
       const err = panelEl.querySelector('#rc_err');
       if (err) {
-        err.textContent = runtimeError?.message || resp?.error || 'Nie udalo sie otworzyc opcji.';
+        err.textContent = runtimeError?.message || resp?.error || t('openOptionsFailed', 'Could not open options.');
       }
     });
   }
@@ -374,11 +377,11 @@
     if (loggedIn) {
       if (errorBox) errorBox.textContent = '';
       if (wasAuthRequired && preview) {
-        preview.textContent = 'Zalogowano. Kliknij Regeneruj, aby wygenerowac odpowiedz.';
+        preview.textContent = t('signedInRegenerate', 'Signed in. Click Regenerate to generate a reply.');
       }
     } else {
-      if (errorBox) errorBox.textContent = 'Wylogowano. Zaloguj sie, aby wygenerowac odpowiedz.';
-      if (preview) preview.textContent = 'Zaloguj sie, aby wygenerowac odpowiedz.';
+      if (errorBox) errorBox.textContent = t('signedOutGenerate', 'Signed out. Sign in to generate a reply.');
+      if (preview) preview.textContent = t('signInToGenerate', 'Sign in to generate a reply.');
     }
 
     panelEl.parentElement?.reposition?.();
@@ -400,7 +403,8 @@
     }
     return {
       placeType: (input.placeType || '').trim(),
-      placeName: (input.placeName || '').trim()
+      placeName: (input.placeName || '').trim(),
+      replyGuidelines: (input.replyGuidelines || '').trim()
     };
   }
 
@@ -435,6 +439,7 @@
       placeKey: '',
       placeName: '',
       placeType: '',
+      replyGuidelines: '',
       detectedPlaceName: '',
       detectedPlaceType: '',
       source: 'none'
@@ -442,30 +447,30 @@
 
     panelEl.innerHTML = `
       <div class="rc-head">
-        <div class="rc-title"><span class="rc-dot"></span> Wybierz styl i sprawdz odpowiedz</div>
+        <div class="rc-title"><span class="rc-dot"></span> ${dom.escapeHtml(t('panelTitle', 'Choose a style and review the reply'))}</div>
         <div class="rc-head-actions">
           <div class="rc-seg" id="rc_seg">
-            <button data-style="soft" class="active">Delikatna</button>
-            <button data-style="brief">Rzeczowa</button>
-            <button data-style="proactive">Proaktywna</button>
+            <button data-style="soft" class="active">${dom.escapeHtml(t('styleSoft', 'Warm'))}</button>
+            <button data-style="brief">${dom.escapeHtml(t('styleBrief', 'Direct'))}</button>
+            <button data-style="proactive">${dom.escapeHtml(t('styleProactive', 'Proactive'))}</button>
           </div>
-          <button id="rc_options" class="rc-icon-btn" type="button" title="Otworz opcje" aria-label="Otworz opcje">
+          <button id="rc_options" class="rc-icon-btn" type="button" title="${dom.escapeHtml(t('openOptions', 'Open options'))}" aria-label="${dom.escapeHtml(t('openOptions', 'Open options'))}">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M19.4 13.5c.1-.5.1-1 .1-1.5s0-1-.1-1.5l2-1.5-2-3.5-2.4 1a7.8 7.8 0 0 0-2.6-1.5L14 2.5h-4l-.4 2.5A7.8 7.8 0 0 0 7 6.5l-2.4-1-2 3.5 2 1.5c-.1.5-.1 1-.1 1.5s0 1 .1 1.5l-2 1.5 2 3.5 2.4-1a7.8 7.8 0 0 0 2.6 1.5l.4 2.5h4l.4-2.5a7.8 7.8 0 0 0 2.6-1.5l2.4 1 2-3.5-2-1.5ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5Z"></path>
             </svg>
           </button>
         </div>
       </div>
-      <div class="rc-preview" id="rc_preview"><div style="display:flex;align-items:center;gap:8px"><div class="rc-spinner"></div><span>Generuje...</span></div></div>
+      <div class="rc-preview" id="rc_preview"><div style="display:flex;align-items:center;gap:8px"><div class="rc-spinner"></div><span>${dom.escapeHtml(t('generating', 'Generating...'))}</span></div></div>
       <div id="rc_quota" class="rc-quota"></div>
       <div class="rc-actions">
-        <button id="rc_copy" class="rc-primary">Skopiuj wygenerowana odpowiedz</button>
-        <button id="rc_regen" class="rc-secondary">Regeneruj</button>
-        <button id="rc_login" class="rc-secondary rc-login" style="display:none">Zaloguj sie</button>
-        <button id="rc_upgrade" class="rc-primary rc-upgrade" style="display:none">Kup abonament</button>
-        <button id="rc_close" class="rc-secondary">Zamknij</button>
-        <span class="rc-note">Kopiuje do schowka i otwiera okno odpowiedzi.</span>
-        <span class="rc-note">Generowanie wysyla tresc opinii, ocene i kontekst miejsca do backendu Reviews Coach oraz Google Gemini wyłącznie w celu przygotowania odpowiedzi.</span>
+        <button id="rc_copy" class="rc-primary">${dom.escapeHtml(t('copyGeneratedReply', 'Copy generated reply'))}</button>
+        <button id="rc_regen" class="rc-secondary">${dom.escapeHtml(t('regenerate', 'Regenerate'))}</button>
+        <button id="rc_login" class="rc-secondary rc-login" style="display:none">${dom.escapeHtml(t('signIn', 'Sign in'))}</button>
+        <button id="rc_upgrade" class="rc-primary rc-upgrade" style="display:none">${dom.escapeHtml(t('buySubscription', 'Buy subscription'))}</button>
+        <button id="rc_close" class="rc-secondary">${dom.escapeHtml(t('close', 'Close'))}</button>
+        <span class="rc-note">${dom.escapeHtml(t('copyOpensReplyWindow', 'Copies to clipboard and opens the reply window.'))}</span>
+        <span class="rc-note">${dom.escapeHtml(t('aiUsesReviewData', 'AI uses the review text, rating, and place context to prepare reply suggestions.'))}</span>
       </div>
       <div id="rc_err" class="rc-error"></div>
     `;
@@ -487,16 +492,16 @@
       const activeStyle = seg.querySelector('.active')?.dataset.style || 'soft';
       const textValue = variants[activeStyle] || '';
       if (!textValue) {
-        panelEl.querySelector('#rc_err').textContent = 'Brak tresci do skopiowania.';
+        panelEl.querySelector('#rc_err').textContent = t('nothingToCopy', 'There is no text to copy.');
         return;
       }
       panelEl.querySelector('#rc_err').textContent = '';
       const copied = await panelApi.copyToClipboard(textValue);
       if (!copied) {
-        panelEl.querySelector('#rc_err').textContent = 'Nie udalo sie skopiowac tresci.';
+        panelEl.querySelector('#rc_err').textContent = t('copyFailed', 'Could not copy the text.');
         return;
       }
-      dom.showToast('Skopiowano do schowka.');
+      dom.showToast(t('copiedToClipboard', 'Copied to clipboard.'));
       await panelApi.openReplyPopup(targetHash, card, { suppressWarnings: true });
     };
 
@@ -530,7 +535,7 @@
       upgradeBtn.addEventListener('click', () => {
         chrome.runtime.sendMessage({ type: 'OPEN_UPGRADE_PAGE' }, (resp) => {
           if (resp && resp.error) {
-            dom.showToast(resp.error || 'Nie udalo sie otworzyc platnosci. Sprobuj pozniej.');
+            dom.showToast(resp.error || t('paymentOpenFailedRetry', 'Could not open payment. Try again later.'));
           }
         });
       });
@@ -558,12 +563,12 @@
       return;
     }
 
-    preview.innerHTML = '<div style="display:flex;align-items:center;gap:8px"><div class="rc-spinner"></div><span>Generuje...</span></div>';
+    preview.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><div class="rc-spinner"></div><span>${dom.escapeHtml(t('generating', 'Generating...'))}</span></div>`;
     panelEl.parentElement?.reposition?.();
 
     const showErrorFallback = (message) => {
       if (!panelEl.isConnected) return;
-      if (errorBox) errorBox.textContent = message || 'Blad generowania (sprawdz klucz).';
+      if (errorBox) errorBox.textContent = message || t('generationErrorCheckKey', 'Generation failed.');
       const activeStyle = seg.querySelector('.active')?.dataset.style || 'soft';
       const fallback = variants[activeStyle] || variants.soft || variants.brief || variants.proactive || '...';
       preview.textContent = fallback;
@@ -589,19 +594,20 @@
       rating: (source.rating || '').toString().trim(),
       placeKey: panelEl.dataset.rcPlaceKey || '',
       placeType: contextValues.placeType,
-      placeName: contextValues.placeName
+      placeName: contextValues.placeName,
+      replyGuidelines: contextValues.replyGuidelines
     };
 
     timeoutId = window.setTimeout(() => {
       if (!settle() || !panelEl.isConnected) return;
-      showErrorFallback('Brak odpowiedzi z uslugi generowania. Sprobuj ponownie.');
+      showErrorFallback(t('generationNoResponse', 'The generation service did not respond. Try again.'));
     }, GENERATE_TIMEOUT_MS);
 
     const sendMessage = chrome?.runtime?.sendMessage;
     if (typeof sendMessage !== 'function') {
       console.error('[RC] chrome.runtime.sendMessage is not available.');
       settle();
-      showErrorFallback('Brak komunikacji z usluga generowania.');
+      showErrorFallback(t('generationNoCommunication', 'Cannot communicate with the generation service.'));
       return;
     }
 
@@ -611,21 +617,21 @@
         const runtimeError = chrome?.runtime?.lastError || null;
         if (runtimeError) {
           console.error('[RC] Runtime message error', runtimeError);
-          showErrorFallback(runtimeError.message || 'Blad komunikacji z generowaniem.');
+          showErrorFallback(runtimeError.message || t('generationCommunicationError', 'Generation communication failed.'));
           return;
         }
         updateQuotaInfo(panelEl, resp && resp.quota ? resp.quota : null);
         if (!resp || resp.error) {
-          let errorMessage = resp?.error || 'Blad generowania (sprawdz klucz).';
+          let errorMessage = resp?.error || t('generationErrorCheckKey', 'Generation failed.');
           const upgradeEligible = resp?.errorCode === 'FREE_LIMIT_REACHED' || resp?.errorCode === 'SUBSCRIPTION_REQUIRED';
           if (resp?.errorCode === 'FREE_LIMIT_REACHED') {
-            errorMessage = 'Limit darmowych odpowiedzi został wykorzystany.';
+            errorMessage = t('freeLimitReached', 'The free reply limit has been used.');
           } else if (resp?.errorCode === 'SUBSCRIPTION_REQUIRED') {
-            errorMessage = 'Wymagany jest abonament, aby kontynuować.';
+            errorMessage = t('subscriptionRequired', 'A subscription is required to continue.');
           }
           if (resp?.errorCode === 'AUTH_REQUIRED') {
             if (errorBox) errorBox.textContent = errorMessage;
-            if (preview) preview.textContent = 'Zaloguj sie, aby wygenerowac odpowiedz.';
+            if (preview) preview.textContent = t('signInToGenerate', 'Sign in to generate a reply.');
             setAuthRequiredMode(panelEl, true);
             panelEl.parentElement?.reposition?.();
             return;
@@ -653,7 +659,7 @@
     } catch (err) {
       console.error('[RC] Failed to send GENERATE_ALL message', err);
       settle();
-      showErrorFallback('Nie udalo sie wyslac zadania generowania.');
+      showErrorFallback(t('generationSendFailed', 'Could not send the generation request.'));
     }
   };
 
@@ -686,7 +692,7 @@
     let card = chips.findCardForHash(targetHash);
     if ((!card || !card.isConnected) && fallbackCard?.isConnected) card = fallbackCard;
     if (!card) {
-      if (!suppressWarnings) dom.showToast('Nie moge znalezc opinii. Sprobuj ponownie.');
+      if (!suppressWarnings) dom.showToast(t('toastReviewNotFound', 'I cannot find the review. Try again.'));
       return;
     }
 
@@ -722,7 +728,7 @@
     }, 4200, 150);
 
     if (!target) {
-      if (!suppressWarnings) dom.showToast('Nie moge otworzyc pola odpowiedzi. Otworz je recznie i wklej odpowiedz.');
+      if (!suppressWarnings) dom.showToast(t('toastReplyFieldOpenFailed', 'I cannot open the reply field. Open it manually and paste the reply.'));
       return;
     }
 
@@ -739,7 +745,7 @@
       input = dom.findWritableField(target, allowHidden);
     }
     if (!input) {
-      dom.showToast('Nie widze pola odpowiedzi w oknie.');
+      dom.showToast(t('toastReplyFieldNotVisible', 'I cannot see the reply field in the window.'));
       return;
     }
     try { input.focus?.(); } catch (_) { }

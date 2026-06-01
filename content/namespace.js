@@ -1,6 +1,14 @@
 (function initNamespace(global){
   const RC = global.RC = global.RC || {};
 
+  RC.t = RC.t || function translate(key, fallback = '', substitutions) {
+    try {
+      const message = chrome?.i18n?.getMessage?.(key, substitutions);
+      if (message) return message;
+    } catch (_) { }
+    return fallback || key;
+  };
+
   const state = RC.state = RC.state || {};
   if (typeof state.panelId === 'undefined') state.panelId = 'rc-panel';
   if (typeof state.currentPanel === 'undefined') state.currentPanel = null;
@@ -78,6 +86,10 @@
     return /(^|\.)google\.(com|pl)$/i.test(hostname || '');
   }
 
+  function isGoogleMapsPath(pathname){
+    return pathname === '/maps' || pathname.startsWith('/maps/');
+  }
+
   pages.isSupportedPage = function isSupportedPage(locationLike = global.location){
     try {
       const url = new URL(String(locationLike?.href || ''), global.location?.href || 'https://www.google.com/');
@@ -85,7 +97,7 @@
       const pathname = url.pathname.toLowerCase();
       const hash = decodeURIComponent(url.hash || '').toLowerCase();
 
-      if (isGoogleHost(hostname) && pathname.startsWith('/maps/')) return true;
+      if (isGoogleHost(hostname) && isGoogleMapsPath(pathname)) return true;
       if (hostname === 'business.google.com' && /\/(?:customers\/reviews|reviews)(?:\/|$)/.test(pathname + hash)) return true;
       if (isGoogleHost(hostname) && pathname === '/search' && /\/customers\/reviews(?:\/|$)/.test(hash)) return true;
     } catch (_){ }

@@ -7,6 +7,7 @@
   const BUSINESS_CONTEXT_KEY = (config.storageKeys && config.storageKeys.businessContext) || 'rcBusinessContext';
   const MAX_PLACE_NAME_CHARS = 120;
   const MAX_PLACE_TYPE_CHARS = 80;
+  const MAX_REPLY_GUIDELINES_CHARS = 1200;
 
   function normalizeSpaces(value) {
     const raw = value == null ? '' : String(value);
@@ -27,6 +28,16 @@
 
   function normalizePlaceType(value) {
     return truncate(normalizeSpaces(value), MAX_PLACE_TYPE_CHARS);
+  }
+
+  function normalizeReplyGuidelines(value) {
+    return truncate((value == null ? '' : String(value))
+      .replace(/\r\n?/g, '\n')
+      .split('\n')
+      .map(line => line.replace(/[ \t]+/g, ' ').trim())
+      .join('\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim(), MAX_REPLY_GUIDELINES_CHARS);
   }
 
   function normalizeKeyPart(value) {
@@ -197,10 +208,11 @@
     const value = stored && stored[BUSINESS_CONTEXT_KEY];
     if (!value || typeof value !== 'object') return null;
     const normalized = placeContext.normalizeContext(value);
-    if (!normalized.placeName && !normalized.placeType) return null;
+    if (!normalized.placeName && !normalized.placeType && !normalized.replyGuidelines) return null;
     return {
       placeName: normalized.placeName,
       placeType: normalized.placeType,
+      replyGuidelines: normalized.replyGuidelines,
       updatedAt: value.updatedAt || null,
       source: value.source || 'options'
     };
@@ -209,7 +221,8 @@
   placeContext.normalizeContext = function normalizeContext(input = {}) {
     return {
       placeName: normalizePlaceName(input.placeName),
-      placeType: normalizePlaceType(input.placeType)
+      placeType: normalizePlaceType(input.placeType),
+      replyGuidelines: normalizeReplyGuidelines(input.replyGuidelines)
     };
   };
 
@@ -239,10 +252,11 @@
     const entry = storedMap[placeKey];
     if (!entry || typeof entry !== 'object') return null;
     const normalized = placeContext.normalizeContext(entry);
-    if (!normalized.placeName && !normalized.placeType) return null;
+    if (!normalized.placeName && !normalized.placeType && !normalized.replyGuidelines) return null;
     return {
       placeName: normalized.placeName,
       placeType: normalized.placeType,
+      replyGuidelines: normalized.replyGuidelines,
       updatedAt: entry.updatedAt || null,
       source: entry.source || 'manual'
     };
@@ -252,7 +266,7 @@
     if (!placeKey) return;
     const normalized = placeContext.normalizeContext(input);
     const storedMap = await readStoredMap();
-    if (!normalized.placeName && !normalized.placeType) {
+    if (!normalized.placeName && !normalized.placeType && !normalized.replyGuidelines) {
       if (storedMap[placeKey]) {
         delete storedMap[placeKey];
         await writeStoredMap(storedMap);
@@ -262,6 +276,7 @@
     storedMap[placeKey] = {
       placeName: normalized.placeName,
       placeType: normalized.placeType,
+      replyGuidelines: normalized.replyGuidelines,
       updatedAt: new Date().toISOString(),
       source: 'manual'
     };
@@ -273,6 +288,7 @@
           ...state.placeContextCache.resolved,
           placeName: normalized.placeName,
           placeType: normalized.placeType,
+          replyGuidelines: normalized.replyGuidelines,
           source: 'manual'
         }
       };
@@ -299,13 +315,15 @@
     const business = await readStoredBusinessContext();
     const resolved = {
       placeName: business?.placeName || manual?.placeName || detected.placeName,
-      placeType: business?.placeType || manual?.placeType || detected.placeType
+      placeType: business?.placeType || manual?.placeType || detected.placeType,
+      replyGuidelines: business?.replyGuidelines || manual?.replyGuidelines || ''
     };
     const source = business ? 'options' : (manual ? 'manual' : ((detected.placeName || detected.placeType) ? 'detected' : 'none'));
     const result = {
       placeKey: detected.placeKey,
       placeName: resolved.placeName || '',
       placeType: resolved.placeType || '',
+      replyGuidelines: resolved.replyGuidelines || '',
       detectedPlaceName: detected.placeName || '',
       detectedPlaceType: detected.placeType || '',
       source
