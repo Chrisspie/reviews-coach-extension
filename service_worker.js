@@ -350,6 +350,8 @@ function buildStoredProfile(rawProfile, parsed) {
     name: (rawProfile.name || '').toString(),
     plan: (rawProfile.plan || parsed?.plan || '').toString(),
     licenseId: (rawProfile.licenseId || license.id || '').toString(),
+    licenseStartsAt: rawProfile.licenseStartsAt ? String(rawProfile.licenseStartsAt) : '',
+    licenseEndsAt: rawProfile.licenseEndsAt ? String(rawProfile.licenseEndsAt) : '',
     replyAssistantConsentAt: rawProfile.replyAssistantConsentAt ? String(rawProfile.replyAssistantConsentAt) : '',
     replyAssistantConsentVersion: rawProfile.replyAssistantConsentVersion ? String(rawProfile.replyAssistantConsentVersion) : '',
     replyAssistantConsentSource: rawProfile.replyAssistantConsentSource ? String(rawProfile.replyAssistantConsentSource) : '',

@@ -259,6 +259,8 @@ describe('Service Worker Logic', () => {
               email: 'owner@example.com',
               sub: 'user-1',
               plan: 'pro',
+              licenseStartsAt: '2099-01-01T00:00:00.000Z',
+              licenseEndsAt: '2099-02-01T00:00:00.000Z',
               replyAssistantConsentAt: '2026-05-06T08:30:00.000Z',
               replyAssistantConsentVersion: '2026-05-06',
               replyAssistantConsentSource: 'extension-options'
@@ -303,6 +305,8 @@ describe('Service Worker Logic', () => {
         sub: 'user-1',
         plan: 'pro',
         licenseId: 'license-1',
+        licenseStartsAt: '2099-01-01T00:00:00.000Z',
+        licenseEndsAt: '2099-02-01T00:00:00.000Z',
         replyAssistantConsentAt: '2026-05-06T08:30:00.000Z',
         replyAssistantConsentVersion: '2026-05-06',
         replyAssistantConsentSource: 'extension-options'
@@ -325,6 +329,8 @@ describe('Service Worker Logic', () => {
         email: 'owner@example.com',
         plan: 'pro',
         licenseId: 'license-1',
+        licenseStartsAt: '2099-01-01T00:00:00.000Z',
+        licenseEndsAt: '2099-02-01T00:00:00.000Z',
         replyAssistantConsentAt: '2026-05-06T08:30:00.000Z'
       },
       quota: { remaining: 42 }
@@ -343,6 +349,8 @@ describe('Service Worker Logic', () => {
           sub: 'user-1',
           plan: 'pro',
           licenseId: 'license-1',
+          licenseStartsAt: '2099-01-01T00:00:00.000Z',
+          licenseEndsAt: '2099-02-01T00:00:00.000Z',
           replyAssistantConsentAt: '2026-05-06T08:30:00.000Z',
           replyAssistantConsentVersion: '2026-05-06',
           replyAssistantConsentSource: 'extension-options'
@@ -493,6 +501,8 @@ describe('Service Worker Logic', () => {
               email: 'owner@example.com',
               sub: 'user-1',
               plan: 'pro',
+              licenseStartsAt: '2099-04-01T00:00:00.000Z',
+              licenseEndsAt: '2099-05-01T00:00:00.000Z',
               replyAssistantConsentAt: '2026-05-06T08:30:00.000Z',
               replyAssistantConsentVersion: '2026-05-06',
               replyAssistantConsentSource: 'extension-options'
@@ -521,7 +531,9 @@ describe('Service Worker Logic', () => {
       profile: {
         email: 'owner@example.com',
         plan: 'pro',
-        licenseId: 'pro-license'
+        licenseId: 'pro-license',
+        licenseStartsAt: '2099-04-01T00:00:00.000Z',
+        licenseEndsAt: '2099-05-01T00:00:00.000Z'
       },
       quota: {
         type: 'unlimited',

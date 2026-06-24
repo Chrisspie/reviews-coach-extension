@@ -2,6 +2,7 @@
   const authStatusEl = document.getElementById('auth-status');
   const accountEmailEl = document.getElementById('account-email');
   const licenseTypeEl = document.getElementById('license-type');
+  const licensePeriodEl = document.getElementById('license-period');
   const quotaLeftEl = document.getElementById('quota-left');
   const nextPaymentEl = document.getElementById('next-payment');
   const consentStatusEl = document.getElementById('consent-status');
@@ -237,6 +238,16 @@
     return '-';
   }
 
+  function licensePeriodLabel(profile, quota){
+    const startsAt = formatDate(profile?.licenseStartsAt);
+    const endsAt = formatDate(profile?.licenseEndsAt);
+    if (startsAt && endsAt) return t('licensePeriodRange', `${startsAt} - ${endsAt}.`, [startsAt, endsAt]);
+    if (startsAt && quota?.lifetime === true) return t('licensePeriodFromNoEnd', `From ${startsAt}, no end date.`, [startsAt]);
+    if (startsAt) return t('licensePeriodFrom', `From ${startsAt}.`, [startsAt]);
+    if (endsAt) return t('licensePeriodUntil', `Until ${endsAt}.`, [endsAt]);
+    return t('noExtensionData', 'No data in the extension.');
+  }
+
   function isUnlimitedQuota(quota){
     if (!quota) return false;
     const type = (quota.type || '').toString().toLowerCase();
@@ -262,12 +273,13 @@
   }
 
   function nextPaymentLabel(profile, quota){
-    if (quota?.lifetime === true) return t('noPaymentLifetime', 'None - lifetime license.');
-    const expiresAt = formatDate(quota?.expiresAt);
     const plan = (profile?.plan || '').toString().toLowerCase();
-    if (plan === 'trial' && expiresAt) return t('trialUntil', `No payment. Trial until ${expiresAt}.`, [expiresAt]);
-    if (plan === 'pro' && expiresAt) return t('proRenewalAt', `${expiresAt} (based on access renewal).`, [expiresAt]);
-    if (expiresAt) return t('accessRenewalAt', `Access renewal: ${expiresAt}.`, [expiresAt]);
+    const licenseEndsAt = formatDate(profile?.licenseEndsAt);
+    if (plan === 'pro' && licenseEndsAt) return t('proRenewalAt', `${licenseEndsAt} (based on access renewal).`, [licenseEndsAt]);
+    if (plan === 'pro' && quota?.lifetime === true) return t('noPaymentLifetime', 'None - lifetime license.');
+    if (plan === 'trial' && licenseEndsAt) return t('trialUntil', `No payment. Trial until ${licenseEndsAt}.`, [licenseEndsAt]);
+    if (plan === 'trial') return t('noPaymentTrial', 'No payment during trial.');
+    if (plan === 'expired') return t('noActivePayment', 'No active payment.');
     return t('noExtensionData', 'No data in the extension.');
   }
 
@@ -285,6 +297,7 @@
     }
     setText(accountEmailEl, loggedIn ? profile.email : '-');
     setText(licenseTypeEl, loggedIn ? planLabel(profile, quota) : '-');
+    setText(licensePeriodEl, loggedIn ? licensePeriodLabel(profile, quota) : '-');
     setText(quotaLeftEl, loggedIn ? quotaLabel(quota) : '-');
     setText(nextPaymentEl, loggedIn ? nextPaymentLabel(profile, quota) : '-');
     setText(consentStatusEl, loggedIn ? formatConsentStatus(profile) : '-');
